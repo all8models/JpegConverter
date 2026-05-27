@@ -1,0 +1,28 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# 시스템 의존성 설치 (Pillow 등 필요시)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libjpeg62-turbo \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python 의존성 설치
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
+
+# 애플리케이션 코드 복사
+COPY . .
+
+EXPOSE 8000
+
+# Gunicorn + Uvicorn 워커 (production)
+CMD ["gunicorn", "app.main:app", \
+     "--worker-class", "uvicorn.workers.UvicornWorker", \
+     "--bind", "0.0.0.0:8000", \
+     "--workers", "4", \
+     "--max-requests", "10000", \
+     "--max-requests-jitter", "500", \
+     "--timeout", "120", \
+     "--access-logfile", "-", \
+     "--error-logfile", "-"]
