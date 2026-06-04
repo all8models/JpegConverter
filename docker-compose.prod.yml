@@ -1,6 +1,7 @@
 services:
   # === 통합 앱 컨테이너 (FastAPI + Celery Worker + Frontend) ===
   app:
+    image: jpegdownload-app:${VERSION_TAG:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
