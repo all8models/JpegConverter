@@ -18,6 +18,11 @@ dist/
 .DS_Store
 
 # Environment
+backend/.env
+
+# Supervisor
+*.pid
+*.pid.lock
 .env
 
 # Docker volumes

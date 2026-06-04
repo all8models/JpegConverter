@@ -15,24 +15,35 @@
 ## 🛠 기술 스택
 
 - **Backend**: FastAPI (Python), Pillow (이미지 처리)
-- **Frontend**: React + Vite
+- **Frontend**: React + Vite (FastAPI가 정적 파일 직접 서빙)
 - **Async Task / Message Broker**: Celery, Redis
-- **Storage**: MinIO (또는 S3 호환 로컬 스토리지)
-- **Infra / Deployment**: Docker, Docker Compose, Nginx (본방 배포 시)
+- **Process Manager**: Supervisor (FastAPI + Celery Worker 동일 컨테이너)
+- **Infra / Deployment**: Docker, Docker Compose
 
 ## 🏗 시스템 아키텍처
 
 ```text
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   React     │────▶│   FastAPI   │────▶│   Celery    │
-│   Frontend  │◀────│   (API)     │     │   Worker    │
-└─────────────┘     └─────────────┘     ───┬──────────┘
-                          │                 │
-                          ▼                 ▼
-                    ┌─────────────┐    ┌─────────────┐
-                    │    Redis    │    │    MinIO    │
-                    │  (Broker)   │    │  (Storage)  │
-                    └─────────────┘    └─────────────┘
+┌──────────────────────────────────────────┐
+│              app 컨테이너                  │
+│                                          │
+│  ┌─────────────┐    ┌─────────────┐      │
+│  │   FastAPI   │    │   Celery    │      │
+│  │  (+정적서빙) │    │   Worker    │      │
+│  └──────┬──────┘    └──────┬──────┘      │
+│         │                  │              │
+│         ▼                  ▼              │
+│  ┌─────────────┐    ┌─────────────┐      │
+│  │  React SPA  │    │  /tmp/results│      │
+│  │  (정적파일)  │    │  (결과저장)  │      │
+│  └─────────────┘    └─────────────┘      │
+└──────────────────────────────────────────┘
+         │                        │
+         ▼                        ▼
+  ┌─────────────┐         ┌─────────────┐
+  │    Redis    │         │   Volume    │
+  │  (Broker)   │         │  results-   │
+  └─────────────┘         │   data      │
+                          └─────────────┘
 ```
 
 ## 💻 설치 및 실행 방법
@@ -46,6 +57,7 @@ cd JpegDownload
 ### 2. Docker를 이용한 실행 및 정지 (권장)
 
 가장 빠르고 간편하게 전체 서비스를 실행하는 방법입니다. 로컬에 Docker가 설치되어 있어야 합니다.
+단 **2개 컨테이너**(app + redis)만으로 모든 서비스가 동작합니다.
 
 **처음 실행하거나 코드를 변경하여 다시 빌드해야 할 때:**
 ```bash
@@ -65,7 +77,7 @@ docker compose stop
 
 ### 3. 수동으로 실행 및 정지 (로컬 개발용)
 
-Docker 없이 직접 실행하려면 Python(3.12 권장), Node.js(22 권장) 및 로컬 Redis/MinIO 서버가 준비되어 있어야 합니다. (정지할 때는 각각 실행 중인 터미널에서 `Ctrl + C`를 누르세요.)
+Docker 없이 직접 실행하려면 Python(3.12 권장), Node.js(22 권장) 및 로컬 Redis 서버가 준비되어 있어야 합니다. (정지할 때는 각각 실행 중인 터미널에서 `Ctrl + C`를 누르세요.)
 
 **[Terminal 1] 백엔드 (FastAPI) 기동:**
 ```bash
@@ -90,6 +102,7 @@ npm run dev
 ### 4. 서비스 접속
 - **프론트엔드 (웹 UI)**: `http://localhost` (Docker 실행 시) 또는 `http://localhost:5173` (수동 실행 시)
 - **백엔드 API 문서**: `http://localhost:8000/docs`
+  - Docker 실행 시 FastAPI가 프론트엔드 정적 파일도 함께 서빙하므로, `http://localhost:8000`으로도 웹 UI에 접속할 수 있습니다.
 
 ## 📖 문서 가이드
 
@@ -104,7 +117,7 @@ npm run dev
 
 - **최대 파일 크기**: 25MB 이하
 - **지원 포맷**: `image/jpeg`, `image/png`, `image/webp` (출력은 JPEG로 통일)
-- 압축된 파일은 작업 완료 후 /tmp/results 또는 MinIO 버킷에 임시 저장되었다가 다운로드 이후 또는 스케줄러에 의해 삭제됩니다.
+- 압축된 파일은 작업 완료 후 `/tmp/results` (Docker volume)에 임시 저장되었다가 다운로드 이후 또는 스케줄러에 의해 삭제됩니다.
 
 ## 🤝 기여 방법
 이슈와 풀 리퀘스트(PR)는 언제나 환영합니다. 코드 기여 시, 기존 포맷터/린터 규칙을 준수해 주세요.
